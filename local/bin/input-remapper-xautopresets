@@ -8,7 +8,7 @@ parent_app_name=input-remapper
 app_name=${0#*$parent_app_name-*}
 version="1.1.5"
 desc="Automatic input-remapper preset manager for systems with access to xdotool and xprop"
-app_dir=~/.config/$parent_app_name
+app_dir=~/.config/${parent_app_name}-2
 log_dir="$app_dir/logs"
 config_file="$app_dir/$app_name.ini"
 app_log="$log_dir/$app_name.log"
@@ -23,6 +23,11 @@ notset_preset=_NOTSET
 default_class=_DEFAULT
 
 declare -A configuration
+
+file_escape ()
+{
+  echo "${@//\//\_}"
+}
 
 # --------------- #
 # Option Handling #
@@ -147,7 +152,7 @@ IsIgnored ()    # Input: Device name
 CombineSections ()  # Inputs: Device name & class
 {                   # Output: Sorted & combined list of all appropriate configuration sections
 
-    echo "Section List:" >> "$log_dir/$2.log"
+    echo "Section List:" >> "$log_dir/$(file_escape $2).log"
     echo "${configuration["$global_section"]}"
     if [ "$section_priority_setting" == "_CLASS" ]; then
         echo "${configuration["$2"]}"
@@ -162,7 +167,7 @@ CombineSections ()  # Inputs: Device name & class
 PresetList ()   # Inputs: Window class & title; stream to presorted config section (default: /dev/stdin)
 {               # Output: List of matching presets
 
-    dev_log="$log_dir/$3.log"
+    dev_log="$log_dir/$(file_escape $3).log"
     section_list="$(sed "/^\s*$/d" < "${4:-/dev/stdin}")"
     classlist=""
 
@@ -189,7 +194,7 @@ PresetList ()   # Inputs: Window class & title; stream to presorted config secti
 TargetPreset () # Input: Device name & stream to list of appropriate presets sorted in order of priority (default $(tac /dev/stdin))
 {               # Output: Target preset
 
-    dev_log="$log_dir/$1.log"
+    dev_log="$log_dir/$(file_escape $1).log"
     preset_list="$(tac "${2:-/dev/stdin}")"
     echo -e "$preset_list\n" >> "$dev_log"
     echo "Target Preset:" >> "$dev_log"
@@ -206,7 +211,7 @@ SetPreset () # Input: device name; target preset name (default: $(cat /dev/stdin
 {            # Output: active preset
 
     dev_name="$1"
-    dev_log="$log_dir/$dev_name.log"
+    dev_log="$log_dir/$(file_escape $dev_name).log"
     target_preset="${2:-$(cat /dev/stdin)}"
     active_preset="$(ConfigValue "$device" <<< "${configuration["$active_section"]}")"
 
@@ -242,12 +247,12 @@ SetPreset () # Input: device name; target preset name (default: $(cat /dev/stdin
 ConfigureDevice ()  # Input: Device name, window class & title
 {                   # Output: Changes and reports device's active preset
 
-    cd "presets/$1"
+    cd "presets/$(file_escape $1)"
 
     device="$1"
     class="$2"
     title="$3"
-    dev_log="$log_dir/$device.log"
+    dev_log="$log_dir/$(file_escape $device).log"
 
     echo "Active window has changed!" >> "$dev_log"
     echo "Class: $class" >> "$dev_log"
@@ -303,8 +308,7 @@ default_priority_setting=
 
             while IFS=  read -r -d $'\n'; do
 
-                    if [ -d "presets/$REPLY" ] && [ "$REPLY" != "" ] &&
-                    [ ! "$(IsIgnored "$REPLY")" ]; then
+                    if [ -d "presets/$(file_escape $REPLY)" ] && [ "$REPLY" != "" ] && [ ! "$(IsIgnored "$REPLY")" ]; then
 
                         echo "Configuring DEVICE:[$REPLY]..." >> "$app_log"
                         if [  "$execution_setting" == "_SERIAL" ]; then

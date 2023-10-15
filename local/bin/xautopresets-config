@@ -4,7 +4,7 @@ app_name="${0#*/bin/*}"
 app_name="${app_name%*-config}"
 desc="Configuration file manipulator for xautopresets"
 version=0.1.5
-app_dir=~/.config/input-remapper
+app_dir=~/.config/input-remapper-2
 config_file="$app_name.ini"
 
 cd "$app_dir"
@@ -114,3 +114,4 @@ while getopts :hn option; do
     esac
 done
 
+vim $config_file
