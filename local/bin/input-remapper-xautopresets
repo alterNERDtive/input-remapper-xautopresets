@@ -139,7 +139,7 @@ ReadIni ()  # Populates configuration array from file
 ConfigValue ()  # Inputs: Setting name & config section
 {               # Output: Value of setting
 
-    line="$(grep "^$1\=" "${2:-/dev/stdin}" | tail -1)"
+    line="$(grep "^$1=" "${2:-/dev/stdin}" | tail -1)"
     echo "${line#*=*}"
 }
 
@@ -244,7 +244,7 @@ SetPreset () # Input: device name; target preset name (default: $(cat /dev/stdin
     esac
 }
 
-ConfigureDevice ()  # Input: Device name, window class & title
+ConfigureDevice ()  # Input: Device name, window class, title & app_id
 {                   # Output: Changes and reports device's active preset
 
     cd "presets/$(file_escape $1)"
@@ -252,11 +252,15 @@ ConfigureDevice ()  # Input: Device name, window class & title
     device="$1"
     class="$2"
     title="$3"
+    app_id="$4"
     dev_log="$log_dir/$(file_escape $device).log"
 
     echo "Active window has changed!" >> "$dev_log"
     echo "Class: $class" >> "$dev_log"
     echo -e "Title: $title\n" >> "$dev_log"
+    echo -e "App_Id: $app_id\n" >> "$dev_log"
+
+    [ "$class" == "null" ] && class="$app_id"
 
     CombineSections "$class" "$device" | PresetList "$class" "$title" "$device"| TargetPreset "$device" | SetPreset "$device"
 
@@ -282,16 +286,18 @@ default_priority_setting=
 
     while [ true ]; do
 
-        window=$(xprop -id $(xdotool getactivewindow))
+        window=$(swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true)' 2>> "$app_log")
 
-        class=$(grep "WM_CLASS" <<< "$window" | sed -r "s/.*,\ \"//; s/\".*$//" 2>> "$app_log")
-        title=$(grep "_NET_WM_NAME(UTF8_STRING)" <<< "$window" | sed -r "s/.*=\ \"//; s/.$//" 2>> "$app_log")
+        app_id=$(echo $window | jq .app_id 2>> "$app_log" | tr -d "\"" )
+        class=$(echo $window | jq .window_properties.class 2>> "$app_log" | tr -d "\"")
+        title=$(echo $window | jq .window_properties.title 2>> "$app_log" | tr -d "\"")
 
-        if [ "$class" != "$last_class" ] || [ "$title" != "$last_title" ]; then
+        if [ "$class" != "$last_class" ] || [ "$title" != "$last_title" ] || [ "$app_id" != "$last_app_id" ]; then
 
             echo "Active window has changed!" >> "$app_log"
             echo "Class: $class" >> "$app_log"
-            echo -e "Title: $title\n" >> "$app_log"
+            echo -e "Title: $title" >> "$app_log"
+            echo -e "App_Id: $app_id\n" >> "$app_log"
 
             if [ -f "$config_file" ]; then
                 ReadIni
@@ -313,11 +319,11 @@ default_priority_setting=
                         echo "Configuring DEVICE:[$REPLY]..." >> "$app_log"
                         if [  "$execution_setting" == "_SERIAL" ]; then
 
-                            ConfigureDevice "$REPLY" "$class" "$title"
+                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id"
                             cd "$app_dir"
 
                         else
-                            ConfigureDevice "$REPLY" "$class" "$title"&
+                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id" &
                         fi
 #                     else
 #                         echo "Ignoring DEVICE:[$REPLY]" >> "$app_log"
@@ -330,6 +336,7 @@ default_priority_setting=
 
                 last_class="$class"
                 last_title="$title"
+                last_app_id="$app_id"
 
                 configuration=()
                 configuration["$active_section"]="$(cat "$active_presets")"
