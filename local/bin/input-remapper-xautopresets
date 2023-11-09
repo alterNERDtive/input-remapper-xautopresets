@@ -253,6 +253,7 @@ ConfigureDevice ()  # Input: Device name, window class, title & app_id
     class="$2"
     title="$3"
     app_id="$4"
+    name="$5"
     dev_log="$log_dir/$(file_escape $device).log"
 
     echo "Active window has changed!" >> "$dev_log"
@@ -261,6 +262,7 @@ ConfigureDevice ()  # Input: Device name, window class, title & app_id
     echo -e "App_Id: $app_id\n" >> "$dev_log"
 
     [ "$class" == "null" ] && class="$app_id"
+    [ "$title" == "null" ] && title="$name"
 
     CombineSections "$class" "$device" | PresetList "$class" "$title" "$device"| TargetPreset "$device" | SetPreset "$device"
 
@@ -291,13 +293,15 @@ default_priority_setting=
         app_id=$(echo $window | jq .app_id 2>> "$app_log" | tr -d "\"" )
         class=$(echo $window | jq .window_properties.class 2>> "$app_log" | tr -d "\"")
         title=$(echo $window | jq .window_properties.title 2>> "$app_log" | tr -d "\"")
+        name=$(echo $window | jq .name 2>> "$app_log" | tr -d "\"")
 
-        if [ "$class" != "$last_class" ] || [ "$title" != "$last_title" ] || [ "$app_id" != "$last_app_id" ]; then
+        if [ "$class" != "$last_class" ] || [ "$title" != "$last_title" ] || [ "$app_id" != "$last_app_id" ] || [ "$name" != "$last_name" ]; then
 
             echo "Active window has changed!" >> "$app_log"
             echo "Class: $class" >> "$app_log"
             echo -e "Title: $title" >> "$app_log"
-            echo -e "App_Id: $app_id\n" >> "$app_log"
+            echo -e "App_Id: $app_id" >> "$app_log"
+            echo -e "Name: $name\n" >> "$app_log"
 
             if [ -f "$config_file" ]; then
                 ReadIni
@@ -319,11 +323,11 @@ default_priority_setting=
                         echo "Configuring DEVICE:[$REPLY]..." >> "$app_log"
                         if [  "$execution_setting" == "_SERIAL" ]; then
 
-                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id"
+                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id" "$name"
                             cd "$app_dir"
 
                         else
-                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id" &
+                            ConfigureDevice "$REPLY" "$class" "$title" "$app_id" "$name" &
                         fi
 #                     else
 #                         echo "Ignoring DEVICE:[$REPLY]" >> "$app_log"
@@ -337,6 +341,7 @@ default_priority_setting=
                 last_class="$class"
                 last_title="$title"
                 last_app_id="$app_id"
+                last_name="$name"
 
                 configuration=()
                 configuration["$active_section"]="$(cat "$active_presets")"
